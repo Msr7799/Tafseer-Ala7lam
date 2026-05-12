@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.0",
+
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "build": "pnpm rag:build && next build --webpack",
     "start": "next start",
     "rag:build": "node scripts/build-rag-index.mjs",
     "rag:search": "node scripts/search-rag.mjs"
-  },
+  
+},
   "dependencies": {
     "@google/genai": "^1.33.0",
     "firebase": "^12.13.0",
