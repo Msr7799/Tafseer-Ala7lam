@@ -1,0 +1,76 @@
+{
+  "chunkWords": 230,
+  "overlapWords": 45,
+  "sources": [
+    {
+      "id": "ibn-sirin-kabeer",
+      "title": "تفسير الأحلام الكبير",
+      "author": "محمد بن سيرين",
+      "role": "dream_primary",
+      "format": "txt",
+      "path": "public/Tafseer_AlAhlam_AlKabeer_BnSereen/Tafseer_AlAhlam_AlKabeer_BnSereen_djvu.txt",
+      "sourceWeight": 1.2,
+      "enabled": true
+    },
+    {
+      "id": "nabulsi-tateer-part1",
+      "title": "تعطير الأنام في تعبير المنام - الجزء الأول",
+      "author": "عبد الغني النابلسي",
+      "role": "dream_primary",
+      "format": "txt",
+      "path": "public/Ta_teer_Al_Anam_Fi_Tabeer_Al_Manam/Ta_teer_Al_Anam_Fi_Tabeer_Al_Manam_PART1_djvu.txt",
+      "sourceWeight": 1.0,
+      "enabled": true
+    },
+    {
+      "id": "nabulsi-tateer-part2",
+      "title": "تعطير الأنام في تعبير المنام - الجزء الثاني",
+      "author": "عبد الغني النابلسي",
+      "role": "dream_primary",
+      "format": "txt",
+      "path": "public/Ta_teer_Al_Anam_Fi_Tabeer_Al_Manam/Ta_teer_Al_Anam_Fi_Tabeer_Al_Manam_PART2_djvu.txt",
+      "sourceWeight": 0.95,
+      "enabled": true
+    },
+    {
+      "id": "ibn-qutaybah-ruya",
+      "title": "عبارة الرؤيا",
+      "author": "ابن قتيبة الدينوري",
+      "role": "methodology",
+      "format": "txt",
+      "path": "public/Tabeer_Al_Roya/Tabeer_Al_Roya_Le_Ibn_Qutaybah_Al_Dinari_djvu.txt",
+      "sourceWeight": 0.85,
+      "enabled": true
+    },
+    {
+      "id": "bukhari",
+      "title": "صحيح البخاري",
+      "author": "محمد بن إسماعيل البخاري",
+      "role": "hadith_support",
+      "format": "djvu-xml",
+      "path": "public/Al_Saheehan/Saheeh_Bukhari_djvu.xml",
+      "sourceWeight": 0.62,
+      "enabled": true
+    },
+    {
+      "id": "muslim",
+      "title": "صحيح مسلم",
+      "author": "مسلم بن الحجاج",
+      "role": "hadith_support",
+      "format": "djvu-xml",
+      "path": "public/Al_Saheehan/Saheeh_Muslim_Book_djvu.xml",
+      "sourceWeight": 0.62,
+      "enabled": true
+    },
+    {
+      "id": "mawsoat-alahlam-low-ocr",
+      "title": "موسوعة تفسير الأحلام العامة",
+      "author": "غير محدد",
+      "role": "secondary_low_ocr",
+      "format": "txt",
+      "path": "scripts/Mawsoat_Al_Ahlam_Al_Ammah_djvu.txt",
+      "sourceWeight": 0.35,
+      "enabled": true
+    }
+  ]
+}
