@@ -139,9 +139,21 @@ ${dream}
 المقتطفات المسترجعة بعد التوسيع وإعادة الترتيب:
 ${JSON.stringify(context, null, 2)}
 
-أخرج JSON صالحا فقط بدون markdown بهذا الشكل:
+أخرج JSON صالحًا فقط، مع اعتبار أن حقل "answer" هو نص Markdown صالح ومنظم.
+يجب أن يبدأ نص الإجابة تمامًا بالعبارة التالية، وأن تُذكر فقط مرة واحدة في البداية:
+بسم الله، والصلاة والسلام على رسول الله، الحمدُ للّه الذي علّم بالقلم، علّم الإنسان مَا لم يَعلم، والصلاةُ والسلامُ على خيرِ مُعلّمِ الناسِ الخَيرِ مُحمد. وبعد
+
+تنسيق Markdown المطلوب داخل answer:
+- استخدم عناوين واضحة بصيغة Markdown مثل: ## خلاصة الرؤيا، ## تفسير الرموز الرئيسية، ## المصادر المستند إليها، ## خلاصة التفسير، ## نصيحة.
+- تحت قسم ## تفسير الرموز الرئيسية اكتب كل رمز كبند مستقل يبدأ بشرطة ومسافة، مثل: - **إطلاق الرصاص في الظهر**: تفسير مختصر.
+- لا تخلط أكثر من رمز في فقرة واحدة؛ كل رمز يجب أن يكون في سطر Markdown مستقل حتى يظهر ككرت في الواجهة.
+- اجعل المصادر في قسم مستقل بعنوان: ## المصادر المستند إليها.
+- تحت قسم المصادر اكتب المصدر بنقاط مختصرة، مثل: - **تفسير ابن سيرين**: استُخدم لبيان معنى كذا.
+- لا تضف أي عنوان ختامي ثابت بعد النصيحة أو الخلاصة.
+- يجب أن يكون آخر سطر في answer هو العبارة التالية حرفيًا: ذلك ماتبين لي واللّه أعلم .
+- لا تكرر العبارة السابقة أكثر من مرة، واجعلها في سطر مستقل أخير فقط.
 {
-  "answer": "جواب عربي واضح ومختصر، يفرق بين النص المباشر والقياس الرمزي، ويستخدم ضمائر صحيحة حسب dreamContext",
+  "answer": "جواب عربي واضح ومختصر بصيغة Markdown، يستخدم عناوين ## وقوائم. تحت قسم تفسير الرموز الرئيسية يجب أن تكون كل الرموز بصيغة قائمة: - **اسم الرمز**: الشرح. يجب أن ينتهي السطر الأخير فقط بالعبارة: ذلك ماتبين لي واللّه أعلم .",
   "dreamContextSummary": "ملخص من هو الرائي ومن هو الشخص المرئي وما أثر ذلك على التفسير",
   "askedQuestionsUsed": ["إجابة توضيحية مؤثرة استخدمتها في التفسير"],
   "reasoningSummary": "ملخص استدلال قابل للمراجعة في 2-4 جمل، وليس سلسلة تفكير داخلية",
@@ -196,6 +208,73 @@ function parseJsonLoose(text: string) {
     });
     throw error;
   }
+}
+
+const answerPrefix =
+  "بسم الله، والصلاة والسلام على رسول الله، الحمدُ للّه الذي علّم بالقلم، علّم الإنسان مَا لم يَعلم، والصلاةُ والسلامُ على خيرِ مُعلّمِ الناسِ الخَيرِ مُحمد. وبعد";
+
+const answerClosing = "ذلك ماتبين لي واللّه أعلم .";
+function compactArabicForFilter(text: string) {
+  return text
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/اللّه/g, "الله")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[^\u0621-\u064A]+/g, "")
+    .trim();
+}
+
+function isForbiddenClosingLine(line: string) {
+  const compact = compactArabicForFilter(line);
+  if (!compact) return false;
+
+  return (
+    compact.includes("نهايهالتحليل") ||
+    compact.includes("السطرالاخير") ||
+    compact.includes("ذلكماتبينليواللهاعلم") ||
+    compact.includes("ذلكماتبينلياللهاعلم") ||
+    compact === "واللهاعلم" ||
+    compact === "اللهاعلم"
+  );
+}
+
+function normalizeAnswerMarkdown(text: string) {
+  let framed = String(text ?? "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => !isForbiddenClosingLine(line))
+    .join("\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  // Remove old forced endings even when the model puts them inside one paragraph.
+  framed = framed
+    .replace(/نهاية\s+التحليل/g, "")
+    .replace(/السطر\s*(?:الأخير|الاخير)/g, "")
+    .replace(/ذلك\s*ما\s*تبي(?:ن|ّن)\s*لي\s*و?الل(?:ه|ّه)\s*أعلم\s*\.?/g, "")
+    .replace(/(?:\n\s*)?(?:و?الل(?:ه|ّه)\s*أعلم\s*\.?\s*)+$/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!framed.startsWith(answerPrefix)) {
+    framed = `${answerPrefix}\n\n${framed}`.trim();
+  }
+
+  framed = framed
+    .replace(/(?:\n\s*)?ذلك\s*ما\s*تبي(?:ن|ّن)\s*لي\s*و?الل(?:ه|ّه)\s*أعلم\s*\.?\s*$/g, "")
+    .replace(/(?:\n\s*)?(?:و?الل(?:ه|ّه)\s*أعلم\s*\.?\s*)+$/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return `${framed}\n\n${answerClosing}`
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function frameAnswer(answer: string) {
+  return normalizeAnswerMarkdown(answer);
 }
 
 let nextGeminiAllowedAt = 0;
@@ -319,7 +398,7 @@ export async function interpretWithGemini(dream: string, search: RagSearchResult
         const parsed = parseJsonLoose(rawText);
 
         return {
-          answer: String(parsed.answer ?? ""),
+          answer: frameAnswer(String(parsed.answer ?? "")),
           dreamContextSummary: typeof parsed.dreamContextSummary === "string" ? parsed.dreamContextSummary : undefined,
           askedQuestionsUsed: Array.isArray(parsed.askedQuestionsUsed) ? parsed.askedQuestionsUsed.map(String) : [],
           reasoningSummary: String(parsed.reasoningSummary ?? ""),

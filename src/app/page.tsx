@@ -5,10 +5,14 @@ import {
   ArrowUpRight,
   BookOpen,
   Brain,
+  Check,
   CheckCircle2,
+  ClipboardCheck,
+  Copy,
   ChevronDown,
   Clock3,
   Database,
+  Download,
   FileQuestion,
   FileText,
   Gauge,
@@ -16,20 +20,25 @@ import {
   LogOut,
   Loader2,
   Menu,
+  MoreVertical,
+  Pencil,
   Play,
   Radar,
   RefreshCcw,
   Search,
   ShieldCheck,
   Sparkles,
+  Trash2,
   UserRound,
   Wand2,
   X
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut, type User as FirebaseUser } from "firebase/auth";
-import { limitToLast, onValue, orderByChild, push, query, ref, serverTimestamp, set, update } from "firebase/database";
+import { limitToLast, onValue, orderByChild, push, query, ref, remove, serverTimestamp, set, update } from "firebase/database";
 import { firebaseAuth, firebaseDatabase, googleProvider } from "@/lib/firebase";
+import GravityStarsBackground from "@/components/GravityStarsBackground";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 type DreamContextPayload = {
   narratorLabel: string;
@@ -256,6 +265,18 @@ type DreamHistoryItem = {
   updatedAt?: number;
 };
 
+type AppToast = {
+  id: string;
+  title: string;
+  message?: string;
+  variant?: "success" | "error" | "warning" | "info";
+  persist?: boolean;
+  actionLabel?: string;
+  onAction?: () => void | Promise<void>;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+};
+
 export default function Home() {
   const [dream, setDream] = useState("");
   const [topK, setTopK] = useState(10);
@@ -271,6 +292,9 @@ export default function Home() {
   const [history, setHistory] = useState<DreamHistoryItem[]>([]);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const [copiedAnswerMode, setCopiedAnswerMode] = useState<"plain" | "markdown" | null>(null);
+  const [toasts, setToasts] = useState<AppToast[]>([]);
 
   const interpretation = result?.interpretation;
   const retrieval = result?.retrieval;
@@ -299,6 +323,10 @@ export default function Home() {
         lastLoginAt: serverTimestamp()
       });
     });
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -420,6 +448,21 @@ export default function Home() {
     setContextAnswers((current) => ({ ...current, [id]: value }));
   }
 
+  async function copyAnswer(mode: "plain" | "markdown") {
+    if (!interpretation?.answer) return;
+
+    const markdown = cleanAnswerMarkdown(interpretation.answer);
+    const textToCopy = mode === "markdown" ? markdown : markdownToPlainText(markdown);
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopiedAnswerMode(mode);
+      window.setTimeout(() => setCopiedAnswerMode(null), 1400);
+    } catch {
+      setError("تعذر نسخ الرد. تأكد من صلاحية Clipboard في المتصفح.");
+    }
+  }
+
   async function signInWithGoogle() {
     setAuthLoading(true);
     setError("");
@@ -455,6 +498,83 @@ export default function Home() {
     setActiveHistoryId(itemRef.key);
   }
 
+  function dismissToast(id: string) {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }
+
+  function showToast(toast: Omit<AppToast, "id">, timeoutMs = 4200) {
+    const id = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const nextToast: AppToast = { id, ...toast };
+    setToasts((current) => [nextToast, ...current].slice(0, 4));
+
+    if (!nextToast.persist) {
+      window.setTimeout(() => dismissToast(id), timeoutMs);
+    }
+
+    return id;
+  }
+
+  async function deleteHistoryItem(item: DreamHistoryItem) {
+    const currentUser = user ?? firebaseAuth.currentUser;
+    if (!currentUser) {
+      showToast({ title: "سجّل الدخول أولًا", message: "لا يمكن تعديل الهستوري بدون حساب.", variant: "warning" });
+      return;
+    }
+
+    try {
+      await remove(ref(firebaseDatabase, `users/${currentUser.uid}/dreams/${item.id}`));
+      if (activeHistoryId === item.id) {
+        setActiveHistoryId(null);
+        setResult(null);
+      }
+      showToast({ title: "تم حذف الحلم", message: "انحذف من هيستوري الأحلام.", variant: "success" });
+    } catch (err) {
+      showToast({ title: "تعذر الحذف", message: err instanceof Error ? err.message : "حدث خطأ غير معروف.", variant: "error" }, 6500);
+    }
+  }
+
+  function confirmDeleteHistoryItem(item: DreamHistoryItem) {
+    const toastId = showToast({
+      title: "تأكيد حذف الحلم",
+      message: `سيتم حذف «${item.title}» من الهستوري نهائيًا.`,
+      variant: "warning",
+      persist: true,
+      actionLabel: "نعم، احذف",
+      secondaryLabel: "إلغاء",
+      onAction: async () => {
+        dismissToast(toastId);
+        await deleteHistoryItem(item);
+      },
+      onSecondary: () => dismissToast(toastId)
+    });
+  }
+
+  async function renameHistoryItem(item: DreamHistoryItem, title: string) {
+    const currentUser = user ?? firebaseAuth.currentUser;
+    const cleanTitle = title.trim().slice(0, 80);
+
+    if (!currentUser || !cleanTitle) {
+      showToast({ title: "العنوان غير صالح", message: "اكتب عنوانًا واضحًا للحلم.", variant: "warning" });
+      return;
+    }
+
+    try {
+      await update(ref(firebaseDatabase, `users/${currentUser.uid}/dreams/${item.id}`), {
+        title: cleanTitle,
+        updatedAt: Date.now()
+      });
+      showToast({ title: "تم تغيير العنوان", message: "صار الحلم أسهل تمييزًا في الهستوري.", variant: "success" });
+    } catch (err) {
+      showToast({ title: "تعذر تغيير العنوان", message: err instanceof Error ? err.message : "حدث خطأ غير معروف.", variant: "error" }, 6500);
+    }
+  }
+
+  function downloadHistoryMarkdown(item: DreamHistoryItem) {
+    const markdown = buildHistoryMarkdown(item);
+    downloadTextFile(`${slugifyFileName(item.title || "dream")}.md`, markdown);
+    showToast({ title: "تم تجهيز ملف Markdown", message: "بدأ تحميل ناتج الحلم كاملًا.", variant: "success" });
+  }
+
   function selectHistoryItem(item: DreamHistoryItem) {
     setDream(item.dream);
     setTopK(item.topK);
@@ -472,12 +592,14 @@ export default function Home() {
 
   return (
     <main className="app-shell">
+      <GravityStarsBackground />
       <div className="aurora aurora-one" />
       <div className="aurora aurora-two" />
+      <ToastCenter toasts={toasts} onDismiss={dismissToast} />
 
       <AppNavbar
         user={user}
-        authReady={authReady}
+        authReady={mounted ? authReady : true}
         authLoading={authLoading}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((current) => !current)}
@@ -487,6 +609,14 @@ export default function Home() {
 
       <header className="hero">
         <div className="hero-copy reveal-card">
+          <GravityStarsBackground
+            variant="section"
+            className="hero-gravity"
+            starsCount={88}
+            starsOpacity={0.62}
+            glowIntensity={10}
+            mouseInfluence={190}
+          />
           <div className="brand-pill">
             <Sparkles size={16} />
             RAG تفسير الأحلام · Nodes Workflow · Gemini
@@ -508,6 +638,14 @@ export default function Home() {
         </div>
 
         <div className="hero-metrics reveal-card delay-1">
+          <GravityStarsBackground
+            variant="section"
+            className="metrics-gravity"
+            starsCount={44}
+            starsOpacity={0.58}
+            glowIntensity={8}
+            mouseInfluence={145}
+          />
           <Metric icon={<Database size={18} />} label="الفهرس" value={activeRetrieval?.debug.totalChunks ? `${activeRetrieval.debug.totalChunks} قطعة` : "محلي"} />
           <Metric icon={<FileQuestion size={18} />} label="الأسئلة" value={workflow?.questions?.length ? `${workflow.questions.length} مطلوبة` : "ذكية"} />
           <Metric icon={<ShieldCheck size={18} />} label="الضمائر" value={workflow?.dreamContext?.isReportedDream ? "رؤيا منقولة" : "مباشرة"} />
@@ -518,35 +656,18 @@ export default function Home() {
         <aside className="control-column">
           <UserSidebar
             user={user}
-            authReady={authReady}
+            authReady={mounted ? authReady : true}
             authLoading={authLoading}
             history={history}
             activeHistoryId={activeHistoryId}
             onSignIn={signInWithGoogle}
             onSignOut={() => signOut(firebaseAuth)}
             onSelectHistory={selectHistoryItem}
+            onDeleteHistory={confirmDeleteHistoryItem}
+            onRenameHistory={renameHistoryItem}
+            onDownloadHistory={downloadHistoryMarkdown}
           />
 
-          <Panel title="نص الحلم" icon={<Brain size={19} />} className="sticky-panel">
-            <textarea value={dream} onChange={(event) => setDream(event.target.value)} placeholder={sampleDream} rows={10} className="dream-input" />
-            <div className="input-footer">
-              <span>{dream.trim().length} حرف</span>
-              <span>{topK} مقاطع</span>
-            </div>
-
-            <div className="range-card">
-              <label>عدد المقاطع المسترجعة</label>
-              <input value={topK} min={4} max={16} type="range" onChange={(event) => setTopK(Number(event.target.value))} />
-              <div className="range-scale"><span>دقيق</span><span>أوسع</span></div>
-            </div>
-
-            <button onClick={() => submitDream()} disabled={loading} className="primary-button full-width">
-              {loading ? <Loader2 className="spin" size={18} /> : <Wand2 size={18} />}
-              {loading ? pipelineSteps[stageIndex] : "فسّر الحلم بالمصادر"}
-            </button>
-          </Panel>
-
-          {workflow?.dreamContext ? <ContextMiniCard context={workflow.dreamContext} /> : null}
           {workflow?.nodeTrace?.length ? <NodeTracePanel nodes={workflow.nodeTrace} /> : null}
           {loading ? <PipelineCard stageIndex={stageIndex} /> : null}
           {error ? <ErrorDiagnostic error={error} result={result} /> : null}
@@ -568,6 +689,31 @@ export default function Home() {
         </aside>
 
         <section className="result-column">
+          <div className={workflow?.dreamContext ? "dream-workbench reveal-card" : "dream-workbench reveal-card single"}>
+            <Panel title="نص الحلم" icon={<Brain size={19} />} className="dream-panel-wide">
+              <textarea value={dream} onChange={(event) => setDream(event.target.value)} placeholder={sampleDream} rows={8} className="dream-input" />
+              <div className="input-footer">
+                <span>{dream.trim().length} حرف</span>
+                <span>{topK} مقاطع</span>
+              </div>
+
+              <div className="dream-actions-row">
+                <div className="range-card">
+                  <label>عدد المقاطع المسترجعة</label>
+                  <input value={topK} min={4} max={16} type="range" onChange={(event) => setTopK(Number(event.target.value))} />
+                  <div className="range-scale"><span>دقيق</span><span>أوسع</span></div>
+                </div>
+
+                <button onClick={() => submitDream()} disabled={loading} className="primary-button dream-submit-button">
+                  {loading ? <Loader2 className="spin" size={18} /> : <Wand2 size={18} />}
+                  {loading ? pipelineSteps[stageIndex] : "فسّر الحلم بالمصادر"}
+                </button>
+              </div>
+            </Panel>
+
+            {workflow?.dreamContext ? <ContextMiniCard context={workflow.dreamContext} /> : null}
+          </div>
+
           {loading ? <LoadingNarrative stageIndex={stageIndex} /> : null}
 
           {!loading && result?.needsFollowUp && workflow ? (
@@ -590,10 +736,21 @@ export default function Home() {
               {activeTab === "answer" ? (
                 <>
                   <Panel title="جواب النموذج" icon={<Sparkles size={19} />} badge={interpretation.model} className="answer-panel reveal-card">
-                    <p className="answer-text">
-                      {typedAnswer}
+                    <div className="answer-toolbar" aria-label="أدوات نسخ الرد">
+                      <button type="button" className="answer-copy-button" onClick={() => copyAnswer("plain")}>
+                        {copiedAnswerMode === "plain" ? <ClipboardCheck size={17} /> : <Copy size={17} />}
+                        {copiedAnswerMode === "plain" ? "تم نسخ الرد" : "نسخ الرد"}
+                      </button>
+                      <button type="button" className="answer-copy-button" onClick={() => copyAnswer("markdown")}>
+                        {copiedAnswerMode === "markdown" ? <ClipboardCheck size={17} /> : <FileText size={17} />}
+                        {copiedAnswerMode === "markdown" ? "تم نسخ Markdown" : "نسخ Markdown"}
+                      </button>
+                    </div>
+
+                    <div className="answer-text">
+                      <MarkdownRenderer markdown={typedAnswer} />
                       {typedAnswer.length < interpretation.answer.length ? <span className="typing-cursor">▌</span> : null}
-                    </p>
+                    </div>
                     {interpretation.evidenceQuality ? <div className="evidence-chip">جودة الاستدلال: {interpretation.evidenceQuality}</div> : null}
                   </Panel>
 
@@ -603,6 +760,7 @@ export default function Home() {
                     <ScoreCard label="تغطية الرموز" value={evaluation?.retrievalCoverage ?? 0} hint="كم رمزًا مركزيًا وجد له النظام سندًا أو قياسًا قريبًا؟" />
                     <ScoreCard label="صلة المصادر" value={evaluation?.citationGrounding ?? 0} hint="هل المقاطع فعلاً مرتبطة بالحلم؟" />
                     <ScoreCard label="حذر التأويل" value={evaluation?.answerCaution ?? 0} hint="هل فرّق بين النص والقياس والاحتمال؟" />
+                    
                   </div>
 
                   <div className="two-column reveal-card delay-2">
@@ -662,6 +820,59 @@ export default function Home() {
   );
 }
 
+const arabicDiacriticsForCopy = /[\u064B-\u065F\u0670]/g;
+
+function compactArabicForCopy(text: string) {
+  return text
+    .replace(arabicDiacriticsForCopy, "")
+    .replace(/اللّه/g, "الله")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[^\u0621-\u064A]+/g, "")
+    .trim();
+}
+
+function isForbiddenAnswerLine(line: string) {
+  const compact = compactArabicForCopy(line);
+  if (!compact) return false;
+
+  return (
+    compact.includes("نهايهالتحليل") ||
+    compact.includes("السطرالاخير") ||
+    compact.includes("ذلكماتبينليواللهاعلم") ||
+    compact.includes("ذلكماتبينلياللهاعلم") ||
+    compact === "واللهاعلم" ||
+    compact === "اللهاعلم"
+  );
+}
+
+function cleanAnswerMarkdown(value: string) {
+  return String(value ?? "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => !isForbiddenAnswerLine(line))
+    .join("\n")
+    .replace(/نهاية\s+التحليل/g, "")
+    .replace(/السطر\s*(?:الأخير|الاخير)/g, "")
+    .replace(/ذلك\s*ما\s*تبي(?:ن|ّن)\s*لي\s*و?الل(?:ه|ّه)\s*أعلم\s*\.?/g, "")
+    .replace(/(?:\n\s*)?(?:و?الل(?:ه|ّه)\s*أعلم\s*\.?\s*)+$/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function markdownToPlainText(markdown: string) {
+  return cleanAnswerMarkdown(markdown)
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "• ")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^>\s?/gm, "")
+    .trim();
+}
+
 function useTypewriter(text: string, enabled: boolean, speedMs: number) {
   const [visible, setVisible] = useState("");
 
@@ -683,6 +894,59 @@ function useTypewriter(text: string, enabled: boolean, speedMs: number) {
   }, [enabled, speedMs, text]);
 
   return visible;
+}
+
+const finalAnswerClosing = "ذلك ماتبين لي واللّه أعلم .";
+
+function ensureFinalClosing(markdown: string) {
+  const cleaned = cleanAnswerMarkdown(markdown);
+  return `${cleaned}\n\n${finalAnswerClosing}`.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function buildHistoryMarkdown(item: DreamHistoryItem) {
+  const answer = ensureFinalClosing(item.result.interpretation?.answer ?? item.answerPreview ?? "");
+  const citations = item.result.interpretation?.citations ?? [];
+  const sources = citations.length
+    ? citations.map((source) => `- **${source.sourceTitle || "مصدر"}**${source.author ? ` — ${source.author}` : ""}${source.location ? ` — ${source.location}` : ""}\n  - الاستخدام: ${source.usedFor || "مساندة التفسير"}`).join("\n")
+    : "- لا توجد مصادر مفصلة محفوظة مع هذه النتيجة.";
+
+  return `# ${item.title}
+
+## نص الحلم
+${item.dream || "غير متوفر"}
+
+## جواب النموذج
+${answer}
+
+## المصادر / الاستشهادات المحفوظة
+${sources}
+
+## بيانات النتيجة
+- تاريخ الإنشاء: ${formatHistoryDate(item.createdAt)}
+- عدد المقاطع المسترجعة: ${item.topK}
+`;
+}
+
+function slugifyFileName(value: string) {
+  const safe = value
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .slice(0, 80);
+
+  return safe || "dream-result";
+}
+
+function downloadTextFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1200);
 }
 
 function createHistoryTitle(value: string) {
@@ -750,7 +1014,7 @@ function AppNavbar({
             </button>
           </>
         ) : (
-          <button type="button" className="google-login-button" disabled={!authReady || authLoading} onClick={onSignIn} aria-label="Sign in with Google">
+          <button type="button" className="google-login-button" disabled={Boolean(!authReady || authLoading)} onClick={onSignIn} aria-label="Sign in with Google">
             {authLoading ? <Loader2 className="spin" size={18} /> : <img src="/google-login-dark.svg" alt="Sign in with Google" />}
           </button>
         )}
@@ -767,7 +1031,10 @@ function UserSidebar({
   activeHistoryId,
   onSignIn,
   onSignOut,
-  onSelectHistory
+  onSelectHistory,
+  onDeleteHistory,
+  onRenameHistory,
+  onDownloadHistory
 }: {
   user: FirebaseUser | null;
   authReady: boolean;
@@ -777,7 +1044,38 @@ function UserSidebar({
   onSignIn: () => Promise<FirebaseUser | null>;
   onSignOut: () => Promise<void>;
   onSelectHistory: (item: DreamHistoryItem) => void;
+  onDeleteHistory: (item: DreamHistoryItem) => void;
+  onRenameHistory: (item: DreamHistoryItem, title: string) => Promise<void>;
+  onDownloadHistory: (item: DreamHistoryItem) => void;
 }) {
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+
+  const filteredHistory = useMemo(() => {
+    const query = historySearch.trim().toLowerCase();
+    if (!query) return history;
+
+    return history.filter((item) => {
+      const haystack = `${item.title} ${item.dream} ${item.answerPreview}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [history, historySearch]);
+
+  function startEditing(item: DreamHistoryItem) {
+    setOpenMenuId(null);
+    setEditingId(item.id);
+    setEditingTitle(item.title);
+  }
+
+  async function submitTitleEdit(item: DreamHistoryItem) {
+    await onRenameHistory(item, editingTitle);
+    setEditingId(null);
+    setEditingTitle("");
+  }
+
   return (
     <Panel title="حساب المستخدم" icon={<UserRound size={18} />} className="user-panel">
       {user ? (
@@ -797,7 +1095,7 @@ function UserSidebar({
       ) : (
         <>
           <p className="muted-text">سجل الدخول بحساب Google حتى يتم حفظ بياناتك وصورة البروفايل وكل تفسيرات الأحلام في Firebase.</p>
-          <button type="button" className="primary-button full-width compact-button" disabled={!authReady || authLoading} onClick={onSignIn}>
+          <button type="button" className="primary-button full-width compact-button" disabled={Boolean(!authReady || authLoading)} onClick={onSignIn}>
             {authLoading ? <Loader2 className="spin" size={18} /> : <LogIn size={18} />}
             {authLoading ? "جاري تسجيل الدخول..." : "تسجيل الدخول بـ Google"}
           </button>
@@ -805,36 +1103,159 @@ function UserSidebar({
       )}
 
       <div className="history-block">
-        <div className="history-title">
-          <strong>هيستوري الأحلام</strong>
+        <div className="history-title history-title-actions">
+          <button type="button" className="history-fold-button" onClick={() => setHistoryCollapsed((current) => !current)} aria-expanded={!historyCollapsed}>
+            <strong>هيستوري الأحلام</strong>
+            <ChevronDown size={16} className={historyCollapsed ? "" : "expanded"} />
+          </button>
           <span>{history.length}</span>
         </div>
-        {user ? (
-          <div className="history-list">
-            {history.length ? history.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                className={item.id === activeHistoryId ? "history-item active" : "history-item"}
-                onClick={() => onSelectHistory(item)}
-              >
-                <strong>{item.title}</strong>
-                <span>{formatHistoryDate(item.createdAt)}</span>
-                <small>{item.answerPreview || item.dream}</small>
-              </button>
-            )) : <p className="muted-text">بعد أول تفسير سيظهر هنا سجل أحلامك ويمكنك فتح أي نتيجة بضغطة.</p>}
-          </div>
+
+        {!historyCollapsed ? (
+          user ? (
+            <>
+              <label className="history-search">
+                <Search size={15} />
+                <input
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                  placeholder="ابحث في العنوان أو نص الحلم..."
+                />
+              </label>
+
+              <div className="history-list compact-history-list">
+                {filteredHistory.length ? filteredHistory.map((item) => (
+                  <article key={item.id} className={item.id === activeHistoryId ? "history-item-shell active" : "history-item-shell"}>
+                    {editingId === item.id ? (
+                      <div className="history-edit-row">
+                        <input
+                          value={editingTitle}
+                          onChange={(event) => setEditingTitle(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void submitTitleEdit(item);
+                            if (event.key === "Escape") setEditingId(null);
+                          }}
+                          autoFocus
+                        />
+                        <button type="button" className="mini-icon-button success" onClick={() => void submitTitleEdit(item)} aria-label="حفظ العنوان">
+                          <Check size={15} />
+                        </button>
+                        <button type="button" className="mini-icon-button" onClick={() => setEditingId(null)} aria-label="إلغاء التعديل">
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="history-item-main"
+                          onClick={() => {
+                            onSelectHistory(item);
+                            setOpenMenuId(null);
+                          }}
+                        >
+                          <strong>{item.title}</strong>
+                          <span>{formatHistoryDate(item.createdAt)}</span>
+                          <small>{item.answerPreview || item.dream}</small>
+                        </button>
+
+                        <div className="history-menu-wrap">
+                          <button
+                            type="button"
+                            className="history-menu-trigger"
+                            onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)}
+                            aria-label="خيارات الحلم"
+                            aria-expanded={openMenuId === item.id}
+                          >
+                            <MoreVertical size={17} />
+                          </button>
+
+                          {openMenuId === item.id ? (
+                            <div className="history-dropdown">
+                              <button type="button" onClick={() => startEditing(item)}>
+                                <Pencil size={15} />
+                                تغيير العنوان
+                              </button>
+                              <button type="button" onClick={() => { setOpenMenuId(null); onDownloadHistory(item); }}>
+                                <Download size={15} />
+                                تحميل Markdown
+                              </button>
+                              <button type="button" className="danger" onClick={() => { setOpenMenuId(null); onDeleteHistory(item); }}>
+                                <Trash2 size={15} />
+                                حذف الحلم
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </>
+                    )}
+                  </article>
+                )) : (
+                  <p className="muted-text">{historySearch ? "لا توجد نتائج مطابقة للبحث." : "بعد أول تفسير سيظهر هنا سجل أحلامك ويمكنك فتح أي نتيجة بضغطة."}</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="muted-text">الهستوري يظهر بعد تسجيل الدخول.</p>
+          )
         ) : (
-          <p className="muted-text">الهستوري يظهر بعد تسجيل الدخول.</p>
+          <p className="muted-text compact-history-hint">القسم مطوي لتوفير المساحة.</p>
         )}
       </div>
     </Panel>
   );
 }
 
+
+function ToastCenter({ toasts, onDismiss }: { toasts: AppToast[]; onDismiss: (id: string) => void }) {
+  if (!toasts.length) return null;
+
+  return (
+    <div className="toast-stack" role="status" aria-live="polite">
+      {toasts.map((toast) => (
+        <div key={toast.id} className={`app-toast ${toast.variant ?? "info"}`}>
+          <div className="toast-icon">
+            {toast.variant === "success" ? <CheckCircle2 size={18} /> : toast.variant === "warning" ? <ShieldCheck size={18} /> : toast.variant === "error" ? <X size={18} /> : <Sparkles size={18} />}
+          </div>
+          <div className="toast-copy">
+            <strong>{toast.title}</strong>
+            {toast.message ? <span>{toast.message}</span> : null}
+            {toast.actionLabel || toast.secondaryLabel ? (
+              <div className="toast-actions">
+                {toast.actionLabel ? (
+                  <button type="button" className="toast-action primary" onClick={() => void toast.onAction?.()}>
+                    {toast.actionLabel}
+                  </button>
+                ) : null}
+                {toast.secondaryLabel ? (
+                  <button type="button" className="toast-action" onClick={() => toast.onSecondary ? toast.onSecondary() : onDismiss(toast.id)}>
+                    {toast.secondaryLabel}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <button type="button" className="toast-close" onClick={() => onDismiss(toast.id)} aria-label="إغلاق التنبيه">
+            <X size={15} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Panel({ title, icon, badge, children, className = "" }: { title: string; icon?: ReactNode; badge?: string; children: ReactNode; className?: string }) {
   return (
     <section className={`panel ${className}`}>
+      <GravityStarsBackground
+        variant="section"
+        className="panel-gravity"
+        starsCount={22}
+        starsOpacity={0.36}
+        glowIntensity={5}
+        mouseInfluence={95}
+        starsInteraction={false}
+      />
       <div className="panel-title">
         <span className="title-icon">{icon}</span>
         <h2>{title}</h2>

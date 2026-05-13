@@ -4,15 +4,13 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.0",
-
   "scripts": {
     "dev": "next dev --webpack",
     "build": "pnpm rag:build && next build --webpack",
     "start": "next start",
     "rag:build": "node scripts/build-rag-index.mjs",
     "rag:search": "node scripts/search-rag.mjs"
-  
-},
+  },
   "dependencies": {
     "@google/genai": "^1.33.0",
     "firebase": "^12.13.0",
@@ -26,6 +24,9 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/retry": "0.12.0",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^3.4.4",
     "typescript": "^5.9.3"
   }
 }
