@@ -3120,3 +3120,891 @@ body {
     min-height: 220px;
   }
 }
+
+
+/* Layout polish patch: non-intrusive right drawer, compact wide composer, collapsible panels */
+.hero,
+.workspace,
+.top-navbar {
+  width: min(1760px, calc(100% - 32px));
+}
+
+.workspace {
+  position: relative;
+  display: block;
+  min-height: 520px;
+  padding-bottom: 42px;
+}
+
+.result-column {
+  width: min(100%, 1180px);
+  margin-inline: auto;
+  transition: margin 240ms cubic-bezier(0.22, 1, 0.36, 1), width 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.workspace.sidebar-open .result-column {
+  width: min(100%, 1180px);
+  margin-left: auto;
+  margin-right: min(430px, 25vw);
+}
+
+.control-column {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 45;
+  width: min(390px, calc(100vw - 32px));
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+  padding: 0 2px 10px;
+  scrollbar-width: thin;
+  transition:
+    opacity 220ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 220ms ease;
+}
+
+.workspace.sidebar-collapsed .control-column {
+  display: grid;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(118%);
+  filter: blur(4px);
+}
+
+.workspace.sidebar-open .control-column {
+  opacity: 1;
+  transform: translateX(0);
+  filter: none;
+}
+
+.control-column .panel {
+  box-shadow: 0 30px 110px rgba(0, 0, 0, 0.56);
+}
+
+.dream-workbench {
+  grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.dream-workbench.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dream-panel-wide .dream-input {
+  min-height: clamp(220px, 16vw, 300px);
+  max-height: 330px;
+  font-size: clamp(1.02rem, 0.28vw + 0.96rem, 1.18rem);
+  line-height: 2.05;
+  padding: 22px 24px;
+}
+
+.dream-actions-row {
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 220px);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.dream-submit-button {
+  min-height: 72px;
+  border-radius: 18px;
+}
+
+.dream-workbench .context-mini {
+  min-height: 100%;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.panel-title-collapsible {
+  margin-bottom: 0;
+}
+
+.panel-collapse-button {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: start;
+}
+
+.panel-collapse-button h2 {
+  flex: 1;
+}
+
+.panel-fold-chevron {
+  color: rgba(250, 250, 250, 0.56);
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.panel:not(.is-collapsed) .panel-fold-chevron {
+  transform: rotate(180deg);
+  color: #f2c600;
+}
+
+.panel-body {
+  position: relative;
+  z-index: 1;
+  margin-top: 14px;
+  animation: panel-body-in 180ms ease both;
+}
+
+.panel.is-collapsed {
+  padding-bottom: 16px;
+}
+
+.panel.is-collapsed .panel-gravity {
+  opacity: 0.08;
+}
+
+@keyframes panel-body-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 1500px) {
+  .workspace.sidebar-open .result-column {
+    margin-right: 430px;
+  }
+}
+
+@media (max-width: 1440px) {
+  .result-column,
+  .workspace.sidebar-open .result-column {
+    width: min(100%, 1040px);
+  }
+
+  .workspace.sidebar-open .result-column {
+    margin-right: min(370px, 28vw);
+  }
+
+  .control-column {
+    width: min(360px, calc(100vw - 32px));
+  }
+}
+
+@media (max-width: 1180px) {
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .control-column {
+    position: relative;
+    right: auto;
+    top: auto;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    order: 2;
+  }
+
+  .result-column,
+  .workspace.sidebar-open .result-column {
+    width: 100%;
+    margin: 0;
+    order: 1;
+  }
+
+  .workspace.sidebar-collapsed .control-column {
+    display: none;
+  }
+
+  .dream-workbench {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .hero,
+  .workspace,
+  .top-navbar {
+    width: min(100% - 20px, 1760px);
+  }
+
+  .dream-panel-wide .dream-input {
+    min-height: 210px;
+    max-height: none;
+    font-size: 1rem;
+  }
+
+  .dream-actions-row {
+    grid-template-columns: 1fr;
+  }
+
+  .dream-submit-button {
+    min-height: 60px;
+  }
+}
+
+/* Final layout tuning: fixed composer width, non-intrusive right rail, slight zoom-out */
+html {
+  font-size: 94%;
+}
+
+.app-shell {
+  padding-top: 14px;
+}
+
+.hero,
+.top-navbar,
+.workspace {
+  width: min(1680px, calc(100% - 34px));
+}
+
+/* The side drawer no longer pushes or shrinks the input/composer area. */
+.workspace.sidebar-open .result-column,
+.workspace.sidebar-collapsed .result-column,
+.result-column {
+  width: min(100%, 1160px) !important;
+  margin-inline: auto !important;
+}
+
+/* Keep the account/history/developer rail next to the answer area, not next to the dream input. */
+.control-column {
+  top: clamp(500px, 38vw, 640px) !important;
+  right: 0 !important;
+  width: min(360px, calc(100vw - 32px)) !important;
+  max-height: calc(100vh - 92px) !important;
+}
+
+.workspace.sidebar-open .control-column {
+  transform: translateX(0) !important;
+}
+
+.workspace.sidebar-collapsed .control-column {
+  transform: translateX(114%) !important;
+}
+
+/* Dream composer: large input on the right, compact context card on the left. */
+.dream-workbench,
+.dream-workbench.single {
+  width: min(100%, 1040px);
+  margin-inline: auto;
+  display: grid !important;
+  grid-template-columns: minmax(250px, 330px) minmax(0, 1fr) !important;
+  grid-template-areas: "context dream" !important;
+  gap: 16px !important;
+  align-items: stretch !important;
+}
+
+.dream-workbench.single {
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-areas: "dream" !important;
+}
+
+.dream-workbench .dream-panel-wide {
+  grid-area: dream;
+  min-width: 0;
+}
+
+.dream-workbench .context-mini {
+  grid-area: context;
+  width: 100%;
+  min-height: 320px !important;
+  max-height: 420px;
+  overflow: auto;
+  align-content: start !important;
+  justify-items: start !important;
+  text-align: start !important;
+}
+
+.dream-workbench .context-mini .rich-text,
+.dream-workbench .context-mini p {
+  max-width: 100%;
+  font-size: clamp(0.92rem, 0.12vw + 0.88rem, 1rem);
+  line-height: 1.9;
+}
+
+.dream-panel-wide .dream-input {
+  min-height: clamp(250px, 20vw, 360px) !important;
+  max-height: 390px !important;
+  width: 100%;
+  resize: vertical;
+  font-size: clamp(1.02rem, 0.22vw + 0.96rem, 1.16rem) !important;
+  line-height: 2.05 !important;
+  padding: 20px 22px !important;
+}
+
+.dream-actions-row {
+  grid-template-columns: minmax(0, 1fr) minmax(168px, 205px) !important;
+  gap: 12px !important;
+}
+
+.dream-submit-button {
+  min-height: 66px !important;
+  padding-inline: 18px !important;
+  font-size: 0.98rem;
+}
+
+/* When the rail is open, only the answer/results stack gives it space. The composer stays centered and unaffected. */
+.workspace.sidebar-open .result-stack {
+  width: min(calc(100% - 390px), 900px) !important;
+  max-width: 900px !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+.workspace.sidebar-collapsed .result-stack,
+.result-stack {
+  width: min(100%, 1000px);
+  margin-inline: auto;
+}
+
+.workspace.sidebar-open .answer-panel,
+.workspace.sidebar-open .result-stack > .panel,
+.workspace.sidebar-open .result-stack > .two-column,
+.workspace.sidebar-open .result-stack > .score-grid {
+  min-width: 0;
+}
+
+/* Keep panel fold buttons compact after the zoom-out. */
+.panel {
+  padding: 16px;
+}
+
+.panel-body {
+  margin-top: 12px;
+}
+
+@media (max-width: 1380px) {
+  .workspace.sidebar-open .result-stack {
+    width: min(calc(100% - 360px), 840px) !important;
+  }
+
+  .control-column {
+    width: min(335px, calc(100vw - 32px)) !important;
+  }
+}
+
+@media (max-width: 1180px) {
+  html {
+    font-size: 96%;
+  }
+
+  .workspace {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .control-column {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    max-height: none !important;
+    order: 2;
+    transform: none !important;
+  }
+
+  .workspace.sidebar-collapsed .control-column {
+    display: none !important;
+  }
+
+  .workspace.sidebar-open .result-stack,
+  .workspace.sidebar-collapsed .result-stack,
+  .result-stack {
+    width: 100% !important;
+    max-width: none !important;
+    margin-inline: 0 !important;
+  }
+
+  .dream-workbench,
+  .dream-workbench.single {
+    width: 100% !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "dream"
+      "context" !important;
+  }
+
+  .dream-workbench .context-mini {
+    min-height: auto !important;
+    max-height: none;
+  }
+}
+
+@media (max-width: 820px) {
+  html {
+    font-size: 100%;
+  }
+
+  .hero,
+  .top-navbar,
+  .workspace {
+    width: min(100% - 18px, 1680px);
+  }
+
+  .dream-actions-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dream-panel-wide .dream-input {
+    min-height: 220px !important;
+    max-height: none !important;
+  }
+}
+
+
+/* Clean organized layout v3: composer first, results + right rail below */
+:root {
+  --page-max: 1500px;
+  --composer-max: 1160px;
+  --answer-max: 1360px;
+  --rail-width: 340px;
+  --layout-gap: 20px;
+}
+
+html {
+  font-size: 91.5%;
+}
+
+.app-shell {
+  padding-top: 12px;
+}
+
+.top-navbar,
+.hero,
+.workspace {
+  width: min(var(--page-max), calc(100% - 34px)) !important;
+  margin-inline: auto !important;
+}
+
+.workspace,
+.workspace.sidebar-open,
+.workspace.sidebar-collapsed {
+  display: block !important;
+  position: relative !important;
+  padding-bottom: 56px !important;
+  min-height: auto !important;
+}
+
+.result-column,
+.workspace.sidebar-open .result-column,
+.workspace.sidebar-collapsed .result-column {
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: auto !important;
+}
+
+/* Composer stays centered and is never affected by the right sidebar. */
+.dream-workbench,
+.dream-workbench.single {
+  width: min(100%, var(--composer-max)) !important;
+  margin: 0 auto 20px !important;
+  display: grid !important;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) !important;
+  grid-template-areas: "context dream" !important;
+  gap: 18px !important;
+  align-items: stretch !important;
+}
+
+.dream-workbench.single {
+  width: min(100%, 900px) !important;
+  grid-template-columns: 1fr !important;
+  grid-template-areas: "dream" !important;
+}
+
+.dream-workbench .dream-panel-wide {
+  grid-area: dream !important;
+  min-width: 0 !important;
+}
+
+.dream-workbench .context-panel,
+.dream-workbench .panel:not(.dream-panel-wide) {
+  grid-area: context !important;
+  min-width: 0 !important;
+}
+
+.dream-workbench .context-mini {
+  width: 100% !important;
+  min-height: 248px !important;
+  max-height: 330px !important;
+  overflow: auto !important;
+  align-content: start !important;
+  justify-items: start !important;
+  text-align: start !important;
+}
+
+.dream-workbench .context-mini .rich-text,
+.dream-workbench .context-mini p {
+  font-size: 0.92rem !important;
+  line-height: 1.85 !important;
+}
+
+.dream-panel-wide .dream-input {
+  min-height: 245px !important;
+  max-height: 325px !important;
+  width: 100% !important;
+  font-size: clamp(0.98rem, 0.22vw + 0.94rem, 1.10rem) !important;
+  line-height: 2 !important;
+  padding: 18px 20px !important;
+}
+
+.dream-actions-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(155px, 200px) !important;
+  gap: 12px !important;
+  align-items: stretch !important;
+  margin-top: 12px !important;
+}
+
+.dream-submit-button {
+  min-height: 64px !important;
+  border-radius: 18px !important;
+  padding-inline: 16px !important;
+  font-size: 0.96rem !important;
+}
+
+.dream-actions-row .range-card {
+  margin-top: 0 !important;
+}
+
+/* Results area: answer is the main column, account/history rail sits beside it only here. */
+.answer-layout {
+  width: min(100%, var(--answer-max)) !important;
+  margin: 18px auto 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--rail-width) !important;
+  gap: var(--layout-gap) !important;
+  align-items: start !important;
+}
+
+.answer-layout-main,
+.result-stack,
+.workspace.sidebar-open .result-stack,
+.workspace.sidebar-collapsed .result-stack {
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.rail-only {
+  margin-top: 0 !important;
+}
+
+.rail-only .placeholder-area {
+  min-height: 1px;
+}
+
+.control-column,
+.workspace.sidebar-open .control-column,
+.workspace.sidebar-collapsed .control-column {
+  position: sticky !important;
+  top: 16px !important;
+  right: auto !important;
+  width: var(--rail-width) !important;
+  max-width: var(--rail-width) !important;
+  max-height: calc(100vh - 32px) !important;
+  overflow-y: auto !important;
+  padding: 0 2px 12px !important;
+  transform: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+  z-index: 12 !important;
+  display: grid !important;
+  gap: 14px !important;
+  align-content: start !important;
+  scrollbar-width: thin;
+}
+
+.workspace.sidebar-collapsed .control-column {
+  display: none !important;
+}
+
+.control-column .panel {
+  box-shadow: 0 24px 78px rgba(0, 0, 0, 0.38) !important;
+}
+
+.tab-bar {
+  width: min(100%, 760px) !important;
+  margin-inline: auto !important;
+}
+
+.score-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.answer-panel,
+.result-stack > .panel,
+.result-stack > .two-column,
+.result-stack > .score-grid {
+  min-width: 0 !important;
+}
+
+/* Make collapsed panels clean and compact, not oversized blank blocks. */
+.panel.is-collapsed {
+  min-height: auto !important;
+  padding-block: 14px !important;
+}
+
+.panel.is-collapsed .panel-body {
+  display: none !important;
+}
+
+@media (min-width: 1580px) {
+  :root {
+    --page-max: 1540px;
+    --composer-max: 1180px;
+    --answer-max: 1400px;
+    --rail-width: 350px;
+  }
+}
+
+@media (max-width: 1240px) {
+  :root {
+    --rail-width: 320px;
+    --layout-gap: 16px;
+  }
+
+  .answer-layout {
+    grid-template-columns: minmax(0, 1fr) var(--rail-width) !important;
+  }
+
+  .dream-workbench,
+  .dream-workbench.single {
+    width: min(100%, 980px) !important;
+    grid-template-columns: minmax(200px, 250px) minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 1080px) {
+  html {
+    font-size: 96%;
+  }
+
+  .answer-layout,
+  .rail-only {
+    grid-template-columns: 1fr !important;
+  }
+
+  .control-column,
+  .workspace.sidebar-open .control-column {
+    position: relative !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .workspace.sidebar-collapsed .control-column {
+    display: none !important;
+  }
+
+  .dream-workbench,
+  .dream-workbench.single {
+    width: 100% !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "dream"
+      "context" !important;
+  }
+
+  .dream-workbench .context-mini {
+    min-height: auto !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  html {
+    font-size: 100%;
+  }
+
+  .top-navbar,
+  .hero,
+  .workspace {
+    width: min(100% - 18px, var(--page-max)) !important;
+  }
+
+  .dream-panel-wide .dream-input {
+    min-height: 220px !important;
+    max-height: none !important;
+  }
+
+  .dream-actions-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dream-submit-button {
+    min-height: 58px !important;
+  }
+
+  .score-grid,
+  .two-column {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Column direction locks: context left + dream right, rail right + answer left. */
+.dream-workbench,
+.answer-layout {
+  direction: ltr !important;
+}
+
+.dream-workbench > *,
+.answer-layout > * {
+  direction: rtl !important;
+}
+
+.workspace.sidebar-collapsed .answer-layout {
+  grid-template-columns: minmax(0, 1fr) !important;
+  width: min(100%, 1040px) !important;
+}
+
+.workspace.sidebar-collapsed .rail-only {
+  display: none !important;
+}
+
+.workspace.sidebar-collapsed .control-column {
+  display: none !important;
+}
+
+/* Patch: full-width composer + right rail aligned with answer body */
+:root {
+  --page-max: 1500px;
+  --composer-max: var(--page-max);
+  --answer-max: 1360px;
+  --rail-width: 340px;
+  --layout-gap: 20px;
+}
+
+/* اجعل قسم نص الحلم/فهم النظام بنفس عرض البرنامج بدل كونه ضيق في المنتصف */
+.dream-workbench,
+.dream-workbench.single,
+.workspace.sidebar-open .dream-workbench,
+.workspace.sidebar-collapsed .dream-workbench {
+  width: min(100%, var(--composer-max)) !important;
+  max-width: var(--composer-max) !important;
+  margin: 0 auto 22px !important;
+  display: grid !important;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr) !important;
+  grid-template-areas: "context dream" !important;
+  gap: 18px !important;
+  align-items: stretch !important;
+}
+
+.dream-workbench.single,
+.workspace.sidebar-open .dream-workbench.single,
+.workspace.sidebar-collapsed .dream-workbench.single {
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-areas: "dream" !important;
+  width: min(100%, var(--composer-max)) !important;
+  max-width: var(--composer-max) !important;
+}
+
+.dream-workbench .dream-panel-wide,
+.dream-workbench.single .dream-panel-wide {
+  grid-area: dream !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+.dream-workbench .context-mini,
+.dream-workbench .context-panel,
+.dream-workbench .panel:not(.dream-panel-wide) {
+  grid-area: context !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 285px !important;
+  max-height: 385px !important;
+}
+
+.dream-panel-wide .dream-input {
+  width: 100% !important;
+  min-height: 245px !important;
+  max-height: 330px !important;
+}
+
+/* اجعل إدخال الحلم لا يتأثر بفتح/إغلاق السايدبار */
+.workspace.sidebar-open .dream-workbench,
+.workspace.sidebar-collapsed .dream-workbench,
+.workspace.sidebar-open .dream-panel-wide,
+.workspace.sidebar-collapsed .dream-panel-wide {
+  transform: none !important;
+  margin-inline: auto !important;
+}
+
+/* السايدبار يبدأ بمحاذاة جواب النموذج، وليس بمحاذاة التابات */
+.answer-layout:not(.rail-only) > .control-column,
+.workspace.sidebar-open .answer-layout:not(.rail-only) > .control-column,
+.workspace.sidebar-collapsed .answer-layout:not(.rail-only) > .control-column {
+  margin-top: 78px !important;
+}
+
+/* مساحة النتائج تبقى مرتبة: التابات يسارها فقط، والرايل يبدأ بعد التابات */
+.answer-layout {
+  width: min(100%, var(--answer-max)) !important;
+  max-width: var(--answer-max) !important;
+  margin: 18px auto 0 !important;
+  grid-template-columns: minmax(0, 1fr) var(--rail-width) !important;
+}
+
+.workspace.sidebar-collapsed .answer-layout {
+  width: min(100%, 1060px) !important;
+  max-width: 1060px !important;
+}
+
+@media (min-width: 1580px) {
+  :root {
+    --page-max: 1540px;
+    --composer-max: var(--page-max);
+    --answer-max: 1400px;
+    --rail-width: 350px;
+  }
+}
+
+@media (max-width: 1240px) {
+  .dream-workbench,
+  .dream-workbench.single,
+  .workspace.sidebar-open .dream-workbench,
+  .workspace.sidebar-collapsed .dream-workbench {
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-template-columns: minmax(220px, 290px) minmax(0, 1fr) !important;
+  }
+
+  .answer-layout:not(.rail-only) > .control-column,
+  .workspace.sidebar-open .answer-layout:not(.rail-only) > .control-column {
+    margin-top: 74px !important;
+  }
+}
+
+@media (max-width: 1080px) {
+  .dream-workbench,
+  .dream-workbench.single,
+  .workspace.sidebar-open .dream-workbench,
+  .workspace.sidebar-collapsed .dream-workbench {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "dream"
+      "context" !important;
+  }
+
+  .answer-layout:not(.rail-only) > .control-column,
+  .workspace.sidebar-open .answer-layout:not(.rail-only) > .control-column {
+    margin-top: 0 !important;
+  }
+}

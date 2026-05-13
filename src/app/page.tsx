@@ -590,6 +590,43 @@ export default function Home() {
     return activeRetrieval.index.sources.filter((source) => source.chunks > 0);
   }, [activeRetrieval]);
 
+  const sidebarRail = (
+    <aside className="control-column">
+          <UserSidebar
+            user={user}
+            authReady={mounted ? authReady : true}
+            authLoading={authLoading}
+            history={history}
+            activeHistoryId={activeHistoryId}
+            onSignIn={signInWithGoogle}
+            onSignOut={() => signOut(firebaseAuth)}
+            onSelectHistory={selectHistoryItem}
+            onDeleteHistory={confirmDeleteHistoryItem}
+            onRenameHistory={renameHistoryItem}
+            onDownloadHistory={downloadHistoryMarkdown}
+          />
+
+          {workflow?.nodeTrace?.length ? <NodeTracePanel nodes={workflow.nodeTrace} /> : null}
+          {loading ? <PipelineCard stageIndex={stageIndex} /> : null}
+          {error ? <ErrorDiagnostic error={error} result={result} /> : null}
+
+          <Panel title="مصادر الفهرس" icon={<BookOpen size={18} />}>
+            <div className="source-list">
+              {sources.length ? (
+                sources.map((source, index) => (
+                  <div key={source.id} className="source-row" style={{ animationDelay: `${index * 45}ms` }}>
+                    <span>{source.title}</span>
+                    <strong>{source.chunks}</strong>
+                  </div>
+                ))
+              ) : (
+                <p className="muted-text">بعد أول طلب ستظهر هنا إحصاءات الفهرس. إذا ظهر خطأ الفهرس، شغّل pnpm rag:build.</p>
+              )}
+            </div>
+          </Panel>
+    </aside>
+  );
+
   return (
     <main className="app-shell">
       <GravityStarsBackground />
@@ -652,42 +689,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section className={sidebarOpen ? "workspace" : "workspace sidebar-collapsed"}>
-        <aside className="control-column">
-          <UserSidebar
-            user={user}
-            authReady={mounted ? authReady : true}
-            authLoading={authLoading}
-            history={history}
-            activeHistoryId={activeHistoryId}
-            onSignIn={signInWithGoogle}
-            onSignOut={() => signOut(firebaseAuth)}
-            onSelectHistory={selectHistoryItem}
-            onDeleteHistory={confirmDeleteHistoryItem}
-            onRenameHistory={renameHistoryItem}
-            onDownloadHistory={downloadHistoryMarkdown}
-          />
-
-          {workflow?.nodeTrace?.length ? <NodeTracePanel nodes={workflow.nodeTrace} /> : null}
-          {loading ? <PipelineCard stageIndex={stageIndex} /> : null}
-          {error ? <ErrorDiagnostic error={error} result={result} /> : null}
-
-          <Panel title="مصادر الفهرس" icon={<BookOpen size={18} />}>
-            <div className="source-list">
-              {sources.length ? (
-                sources.map((source, index) => (
-                  <div key={source.id} className="source-row" style={{ animationDelay: `${index * 45}ms` }}>
-                    <span>{source.title}</span>
-                    <strong>{source.chunks}</strong>
-                  </div>
-                ))
-              ) : (
-                <p className="muted-text">بعد أول طلب ستظهر هنا إحصاءات الفهرس. إذا ظهر خطأ الفهرس، شغّل pnpm rag:build.</p>
-              )}
-            </div>
-          </Panel>
-        </aside>
-
+      <section className={sidebarOpen ? "workspace sidebar-open" : "workspace sidebar-collapsed"}>
         <section className="result-column">
           <div className={workflow?.dreamContext ? "dream-workbench reveal-card" : "dream-workbench reveal-card single"}>
             <Panel title="نص الحلم" icon={<Brain size={19} />} className="dream-panel-wide">
@@ -730,7 +732,9 @@ export default function Home() {
           {!loading && !hasResult && activeRetrieval ? <PartialRetrievalPanel retrieval={activeRetrieval} /> : null}
 
           {hasResult && interpretation && retrieval ? (
-            <div className="result-stack">
+            <div className="answer-layout">
+              <div className="answer-layout-main">
+                <div className="result-stack">
               <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
 
               {activeTab === "answer" ? (
@@ -812,8 +816,16 @@ export default function Home() {
               ) : null}
 
               {activeTab === "debug" ? <DebugPanel retrieval={retrieval} workflow={workflow} /> : null}
+                </div>
+              </div>
+              {sidebarRail}
             </div>
-          ) : null}
+          ) : (
+            <div className="answer-layout rail-only">
+              <div className="answer-layout-main placeholder-area" />
+              {sidebarRail}
+            </div>
+          )}
         </section>
       </section>
     </main>
@@ -1244,9 +1256,25 @@ function ToastCenter({ toasts, onDismiss }: { toasts: AppToast[]; onDismiss: (id
   );
 }
 
-function Panel({ title, icon, badge, children, className = "" }: { title: string; icon?: ReactNode; badge?: string; children: ReactNode; className?: string }) {
+function Panel({
+  title,
+  icon,
+  badge,
+  children,
+  className = "",
+  defaultCollapsed = false
+}: {
+  title: string;
+  icon?: ReactNode;
+  badge?: string;
+  children: ReactNode;
+  className?: string;
+  defaultCollapsed?: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
   return (
-    <section className={`panel ${className}`}>
+    <section className={`panel ${collapsed ? "is-collapsed" : ""} ${className}`}>
       <GravityStarsBackground
         variant="section"
         className="panel-gravity"
@@ -1256,12 +1284,23 @@ function Panel({ title, icon, badge, children, className = "" }: { title: string
         mouseInfluence={95}
         starsInteraction={false}
       />
-      <div className="panel-title">
-        <span className="title-icon">{icon}</span>
-        <h2>{title}</h2>
-        {badge ? <span className="pill">{badge}</span> : null}
+      <div className="panel-title panel-title-collapsible">
+        <button
+          type="button"
+          className="panel-collapse-button"
+          onClick={() => setCollapsed((current) => !current)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? `فتح قسم ${title}` : `طي قسم ${title}`}
+        >
+          <span className="title-icon">{icon}</span>
+          <h2>{title}</h2>
+          {badge ? <span className="pill">{badge}</span> : null}
+          <ChevronDown size={17} className="panel-fold-chevron" />
+        </button>
       </div>
-      {children}
+      <div className="panel-body" hidden={collapsed}>
+        {children}
+      </div>
     </section>
   );
 }
