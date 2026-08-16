@@ -327,6 +327,9 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
+    if (window.matchMedia("(max-width: 1080px)").matches) {
+      setSidebarOpen(false);
+    }
   }, []);
 
   useEffect(() => {
